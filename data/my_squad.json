@@ -1,0 +1,120 @@
+{
+  "_comment": "FPL Squad Template - Replace with your actual squad",
+  "_instructions": [
+    "This is a template file. You need to replace these with your actual squad players.",
+    "You can find player IDs from: https://fantasy.premierleague.com/api/bootstrap-static/",
+    "Or simply use player names and the optimizer will try to match them.",
+    "Make sure you have exactly 15 players: 2 GKP, 5 DEF, 5 MID, 3 FWD",
+    "The 'budget' field is your available funds for transfers (in millions)",
+    "The 'free_transfers' field is how many free transfers you currently have"
+  ],
+  "squad": [
+    {
+      "id": 0,
+      "name": "Roefs",
+      "position": "GKP",
+      "team": "Sunderland",
+      "cost": 4.6
+    },
+    {
+      "id": 0,
+      "name": "Pope",
+      "position": "GKP",
+      "team": "Newcastle",
+      "cost": 5.2
+    },
+    {
+      "id": 0,
+      "name": "Alderete",
+      "position": "DEF",
+      "team": "Sunderland",
+      "cost": 4.1
+    },
+    {
+      "id": 0,
+      "name": "Guéhi",
+      "position": "DEF",
+      "team": "Crystal Palace",
+      "cost": 4.7
+    },
+    {
+      "id": 0,
+      "name": "Gabriel",
+      "position": "DEF",
+      "team": "Arsenal",
+      "cost": 6.3
+    },
+    {
+      "id": 0,
+      "name": "Senesi",
+      "position": "DEF",
+      "team": "Bournemouth",
+      "cost": 4.9
+    },
+    {
+      "id": 0,
+      "name": "Romero",
+      "position": "DEF",
+      "team": "Tottenham",
+      "cost": 5.1
+    },
+    {
+      "id": 0,
+      "name": "Semenyo",
+      "position": "MID",
+      "team": "Bournemouth",
+      "cost": 7.9
+    },
+    {
+      "id": 0,
+      "name": "Doku",
+      "position": "MID",
+      "team": "Man City",
+      "cost": 6.6
+    },
+    {
+      "id": 0,
+      "name": "Gravenberch",
+      "position": "MID",
+      "team": "Liverpool",
+      "cost": 5.6
+    },
+    {
+      "id": 0,
+      "name": "Sarr",
+      "position": "MID",
+      "team": "Crystal Palace",
+      "cost": 6.4
+    },
+    {
+      "id": 0,
+      "name": "Anthony",
+      "position": "MID",
+      "team": "Burnley",
+      "cost": 5.7
+    },
+    {
+      "id": 0,
+      "name": "Woltemade",
+      "position": "FWD",
+      "team": "Newcastle",
+      "cost": 7.2
+    },
+    {
+      "id": 0,
+      "name": "Haaland",
+      "position": "FWD",
+      "team": "Man City",
+      "cost": 14.5
+    },
+    {
+      "id": 0,
+      "name": "Bowen",
+      "position": "FWD",
+      "team": "West Ham",
+      "cost": 7.7
+    }
+  ],
+  "budget": 4.2,
+  "free_transfers": 2
+}
