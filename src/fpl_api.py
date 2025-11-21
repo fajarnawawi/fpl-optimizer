@@ -264,15 +264,25 @@ class FPLAPIClient:
 
         if fixtures_df.empty:
             # Return default difficulty of 3 if no fixtures found (e.g. end of season)
+            logger.warning(f"No fixtures found for GW {next_gw}, using default difficulty")
             return {i: 3 for i in range(1, 21)}
 
         team_difficulty = {}
 
+        # Check if required columns exist
+        required_cols = ['team_h', 'team_a', 'team_h_difficulty', 'team_a_difficulty']
+        missing_cols = [col for col in required_cols if col not in fixtures_df.columns]
+        if missing_cols:
+            logger.warning(f"Missing columns in fixtures: {missing_cols}, using defaults")
+            return {i: 3 for i in range(1, 21)}
+
         for _, row in fixtures_df.iterrows():
-            # Map home team difficulty
-            team_difficulty[row['team_h']] = row['team_h_difficulty']
-            # Map away team difficulty
-            team_difficulty[row['team_a']] = row['team_a_difficulty']
+            # Map home team difficulty (with safe defaults)
+            if pd.notna(row.get('team_h')) and pd.notna(row.get('team_h_difficulty')):
+                team_difficulty[int(row['team_h'])] = int(row['team_h_difficulty'])
+            # Map away team difficulty (with safe defaults)
+            if pd.notna(row.get('team_a')) and pd.notna(row.get('team_a_difficulty')):
+                team_difficulty[int(row['team_a'])] = int(row['team_a_difficulty'])
 
         # Fill missing teams (blanks) with high difficulty (prevent selection)
         for i in range(1, 21):

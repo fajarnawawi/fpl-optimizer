@@ -22,10 +22,23 @@ class StrategyOverlay:
         adjusted_scores = {}
 
         for pid, score in cpv_scores.items():
-            player = players_df[players_df['id'] == pid].iloc[0]
+            # Find player in dataframe
+            player_rows = players_df[players_df['id'] == pid]
+            if player_rows.empty:
+                # Player not found, use unadjusted score
+                adjusted_scores[pid] = score
+                continue
 
-            # Use selected_by_percent as proxy for EO
-            ownership = float(player['selected_by_percent']) / 100.0
+            player = player_rows.iloc[0]
+
+            # Use selected_by_percent as proxy for EO (with safe conversion)
+            try:
+                ownership_value = player.get('selected_by_percent', 0)
+                if pd.isna(ownership_value) or ownership_value == '':
+                    ownership_value = 0
+                ownership = float(ownership_value) / 100.0
+            except (ValueError, TypeError):
+                ownership = 0.0
 
             if mode == 'rank_protection':
                 # Boost high ownership players to minimize variance

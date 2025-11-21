@@ -31,8 +31,14 @@ class CPVCalculator:
         Section 2.3: Defenders (Fixtures > Form), Attackers (Form > Fixtures)
         """
         # Normalize Form (0-10 scale typically)
-        form_score = float(player['form']) / 10.0
-        form_score = max(0.0, min(1.0, form_score))
+        try:
+            form_value = player.get('form', 0)
+            if pd.isna(form_value) or form_value == '':
+                form_value = 0
+            form_score = float(form_value) / 10.0
+            form_score = max(0.0, min(1.0, form_score))
+        except (ValueError, TypeError):
+            form_score = 0.0
 
         # Normalize Fixture (FDR is 1-5, we want 1 to be high score)
         # Difficulty 1 -> 1.0, Difficulty 5 -> 0.0
@@ -63,9 +69,15 @@ class CPVCalculator:
             value_score = 0
 
         # Ceiling: Use ICT index as proxy for explosive potential
-        ict = float(player['ict_index'])
-        # Normalize ICT (approx max 300)
-        ceiling_score = min(1.0, ict / 300.0)
+        try:
+            ict_value = player.get('ict_index', 0)
+            if pd.isna(ict_value) or ict_value == '':
+                ict_value = 0
+            ict = float(ict_value)
+            # Normalize ICT (approx max 300)
+            ceiling_score = min(1.0, ict / 300.0)
+        except (ValueError, TypeError):
+            ceiling_score = 0.0
 
         return (0.5 * value_score) + (0.5 * ceiling_score)
 
@@ -92,13 +104,16 @@ class CPVCalculator:
 
         # Normalize xP first (find max)
         max_xp = max(self.xP.values()) if self.xP else 1
+        # Prevent division by zero
+        if max_xp <= 0:
+            max_xp = 1
 
         for _, player in self.players.iterrows():
             pid = player['id']
 
             # 1. Normalized Predicted Points
             raw_xp = self.xP.get(pid, 0)
-            xp_score = raw_xp / max_xp
+            xp_score = raw_xp / max_xp if max_xp > 0 else 0
 
             # 2. Fixture & Form
             ffi_score = self.calculate_ffi(player)
