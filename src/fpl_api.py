@@ -93,14 +93,15 @@ class FPLAPIClient:
         columns = [
             'id', 'web_name', 'first_name', 'second_name',
             'team', 'team_name', 'position', 'element_type',
-            'cost', 'selected_by_percent', 'form', 
+            'cost', 'selected_by_percent', 'form',
             'total_points', 'points_per_game', 'minutes',
             'goals_scored', 'assists', 'clean_sheets',
-            'goals_conceded', 'bonus', 'influence', 
+            'goals_conceded', 'bonus', 'influence',
             'creativity', 'threat', 'ict_index',
-            'expected_goals', 'expected_assists', 
+            'expected_goals', 'expected_assists',
             'expected_goal_involvements', 'expected_goals_conceded',
-            'starts', 'yellow_cards', 'red_cards'
+            'starts', 'yellow_cards', 'red_cards',
+            'chance_of_playing_next_round'
         ]
         
         # Only include columns that exist
@@ -227,10 +228,10 @@ class FPLAPIClient:
     def get_fixtures(self, gameweek: Optional[int] = None) -> pd.DataFrame:
         """
         Get fixtures for a specific gameweek
-        
+
         Args:
             gameweek: Gameweek number (None = next gameweek)
-            
+
         Returns:
             DataFrame with fixture information
         """
@@ -238,15 +239,57 @@ class FPLAPIClient:
             url = f"{self.base_url}fixtures/"
             if gameweek:
                 url += f"?event={gameweek}"
-            
+
             response = self.session.get(url)
             response.raise_for_status()
             fixtures = response.json()
-            
+
             return pd.DataFrame(fixtures)
         except requests.RequestException as e:
             logger.error(f"Error fetching fixtures: {e}")
             return pd.DataFrame()
+
+    def get_next_fixture_difficulty(self, current_gw: int) -> Dict[int, int]:
+        """
+        Get the difficulty rating of the next fixture for each team
+
+        Args:
+            current_gw: Current gameweek number
+
+        Returns:
+            Dict mapping team_id to difficulty rating (1-5)
+        """
+        next_gw = current_gw + 1
+        fixtures_df = self.get_fixtures(next_gw)
+
+        if fixtures_df.empty:
+            # Return default difficulty of 3 if no fixtures found (e.g. end of season)
+            logger.warning(f"No fixtures found for GW {next_gw}, using default difficulty")
+            return {i: 3 for i in range(1, 21)}
+
+        team_difficulty = {}
+
+        # Check if required columns exist
+        required_cols = ['team_h', 'team_a', 'team_h_difficulty', 'team_a_difficulty']
+        missing_cols = [col for col in required_cols if col not in fixtures_df.columns]
+        if missing_cols:
+            logger.warning(f"Missing columns in fixtures: {missing_cols}, using defaults")
+            return {i: 3 for i in range(1, 21)}
+
+        for _, row in fixtures_df.iterrows():
+            # Map home team difficulty (with safe defaults)
+            if pd.notna(row.get('team_h')) and pd.notna(row.get('team_h_difficulty')):
+                team_difficulty[int(row['team_h'])] = int(row['team_h_difficulty'])
+            # Map away team difficulty (with safe defaults)
+            if pd.notna(row.get('team_a')) and pd.notna(row.get('team_a_difficulty')):
+                team_difficulty[int(row['team_a'])] = int(row['team_a_difficulty'])
+
+        # Fill missing teams (blanks) with high difficulty (prevent selection)
+        for i in range(1, 21):
+            if i not in team_difficulty:
+                team_difficulty[i] = 5
+
+        return team_difficulty
 
 
 if __name__ == "__main__":

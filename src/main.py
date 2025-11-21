@@ -11,6 +11,8 @@ from typing import Optional
 from fpl_api import FPLAPIClient
 from models import estimate_expected_points, HybridModel
 from optimizer import FPLOptimizer
+from cpv import CPVCalculator
+from strategies import StrategyOverlay
 from utils import (
     load_current_squad, save_gameweek_result, print_comparison_table,
     get_squad_player_ids, suggest_transfers, print_transfers,
@@ -27,21 +29,24 @@ logger = logging.getLogger(__name__)
 
 class FPLGameweekOptimizer:
     """Main orchestrator for FPL optimization"""
-    
-    def __init__(self, method: str = 'weighted_average', 
+
+    def __init__(self, method: str = 'weighted_average',
                  robust: bool = False,
-                 squad_constraint: bool = True):
+                 squad_constraint: bool = True,
+                 strategy: str = 'standard'):
         """
         Initialize the gameweek optimizer
-        
+
         Args:
             method: Prediction method to use
             robust: Whether to use robust optimization
             squad_constraint: Whether to constrain to current squad (vs optimize from all players)
+            strategy: Strategic mode ('standard', 'rank_protection', 'rank_climbing')
         """
         self.method = method
         self.robust = robust
         self.squad_constraint = squad_constraint
+        self.strategy = strategy
         self.api_client = FPLAPIClient()
         
     def optimize_gameweek(self, gameweek: Optional[int] = None) -> dict:
@@ -86,14 +91,31 @@ class FPLGameweekOptimizer:
             
             logger.info(f"Calculating expected points using {self.method}...")
             expected_points = estimate_expected_points(
-                histories, 
+                histories,
                 method=self.method,
                 weeks_to_end=weeks_remaining
             )
-            
-            # Add expected points to players_df
-            players_df['expected_points'] = players_df['id'].map(expected_points).fillna(0)
-        
+
+        # --- NEW: CPV CALCULATION ---
+        logger.info("Calculating Composite Player Viability (CPV) scores...")
+
+        # Get fixture difficulty for FFI calculation
+        team_difficulty = self.api_client.get_next_fixture_difficulty(gameweek)
+
+        # Calculate CPV
+        cpv_calc = CPVCalculator(players_df, expected_points, team_difficulty)
+        cpv_scores = cpv_calc.calculate_all()
+
+        # --- NEW: STRATEGIC OVERLAY ---
+        if self.strategy != 'standard':
+            logger.info(f"Applying strategy: {self.strategy}")
+            final_scores = StrategyOverlay.apply_strategy(cpv_scores, players_df, self.strategy)
+        else:
+            final_scores = cpv_scores
+
+        # Add CPV scores to dataframe for display
+        players_df['expected_points'] = players_df['id'].map(final_scores).fillna(0)
+
         # If squad constraint is enabled, filter to current squad
         if self.squad_constraint:
             squad_data = load_current_squad()
@@ -106,10 +128,10 @@ class FPLGameweekOptimizer:
                 logger.warning("No squad found, optimizing from all players")
         
         # Run optimization
-        logger.info("Running integer programming optimization...")
+        logger.info("Running integer programming optimization on CPV scores...")
         optimizer = FPLOptimizer(
             players_df=players_df,
-            expected_points=expected_points,
+            expected_points=final_scores,
             budget=STARTING_11_BUDGET,
             robust=self.robust
         )
@@ -165,8 +187,12 @@ class FPLGameweekOptimizer:
             logger.info(f"\n{'='*80}")
             logger.info(f"Testing method: {method}")
             logger.info(f"{'='*80}")
-            
-            optimizer = FPLGameweekOptimizer(method=method, squad_constraint=self.squad_constraint)
+
+            optimizer = FPLGameweekOptimizer(
+                method=method,
+                squad_constraint=self.squad_constraint,
+                strategy=self.strategy
+            )
             try:
                 result = optimizer.optimize_gameweek(gameweek)
                 if result:
@@ -241,25 +267,31 @@ def main():
 Examples:
   # Optimize current gameweek with weighted average (recommended)
   python main.py --method weighted_average
-  
-  # Use Monte Carlo simulation  
+
+  # Use Monte Carlo simulation
   python main.py --method monte_carlo
-  
+
   # Use hybrid ML approach (highest peak performance)
   python main.py --method hybrid
-  
+
   # Compare all methods
   python main.py --compare-all
-  
+
   # Get transfer suggestions
   python main.py --suggest-transfers
-  
+
   # Use robust optimization for risk-averse strategy
   python main.py --method weighted_average --robust
-  
+
+  # Use rank climbing strategy (find differentials to catch up)
+  python main.py --method weighted_average --strategy rank_climbing
+
+  # Use rank protection strategy (follow the crowd)
+  python main.py --method weighted_average --strategy rank_protection
+
   # Optimize from ALL players (not just your squad)
   python main.py --method weighted_average --no-squad-constraint
-  
+
   # Create squad template file
   python main.py --create-template
         """
@@ -288,7 +320,15 @@ Examples:
         action='store_true',
         help='Use robust optimization (worst-case scenario)'
     )
-    
+
+    parser.add_argument(
+        '--strategy',
+        type=str,
+        default='standard',
+        choices=['standard', 'rank_protection', 'rank_climbing'],
+        help='Strategic mode: standard (max points), rank_protection (follow the crowd), rank_climbing (differentials)'
+    )
+
     parser.add_argument(
         '--no-squad-constraint',
         action='store_true',
@@ -331,7 +371,8 @@ Examples:
     optimizer = FPLGameweekOptimizer(
         method=args.method,
         robust=args.robust,
-        squad_constraint=not args.no_squad_constraint
+        squad_constraint=not args.no_squad_constraint,
+        strategy=args.strategy
     )
     
     try:
