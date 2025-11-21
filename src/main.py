@@ -158,7 +158,8 @@ class FPLGameweekOptimizer:
             'gameweek': gameweek,
             'method': self.method,
             'solution': solution,
-            'optimizer': optimizer
+            'optimizer': optimizer,
+            'players_df': players_df  # Include DataFrame with CPV scores for transfer suggestions
         }
     
     def compare_methods(self, gameweek: Optional[int] = None) -> dict:
@@ -218,35 +219,38 @@ class FPLGameweekOptimizer:
                                      max_transfers: int = 1):
         """
         Suggest transfers to move towards optimal team
-        
+
         Args:
             gameweek: Gameweek number (None = current)
             max_transfers: Maximum number of transfers to suggest
         """
         # Get current squad
         squad_data = load_current_squad()
-        
-        # Get all players
-        players_df = self.api_client.get_all_players()
-        current_squad_ids = get_squad_player_ids(squad_data, players_df)
-        
+
+        # Get all players (initial fetch for squad IDs)
+        players_df_initial = self.api_client.get_all_players()
+        current_squad_ids = get_squad_player_ids(squad_data, players_df_initial)
+
         if not current_squad_ids:
             print("No current squad found. Please set up your squad first.")
             return
-        
+
         # Get optimal squad (without squad constraint)
         original_constraint = self.squad_constraint
         self.squad_constraint = False
-        
+
         result = self.optimize_gameweek(gameweek)
-        
+
         self.squad_constraint = original_constraint
-        
+
         if result is None:
             return
-        
+
         optimal_squad_ids = result['solution']['selected_players']['id'].tolist()
-        
+
+        # Use the players_df with CPV scores from the optimization result
+        players_df = result['players_df']
+
         # Get transfer suggestions
         transfers = suggest_transfers(
             current_squad_ids,
